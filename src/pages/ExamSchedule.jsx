@@ -1318,6 +1318,7 @@ const ExamSchedule = ({ onNavigate }) => {
                   }
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
                 >
+                <option value="">Select exam type</option>
                   <option value="CLASS_TEST_1">Class_Test_1</option>
                   <option value="FIRST_TERM">First Term</option>
                   <option value="CLASS_TEST_2">Class_Test_2</option>
