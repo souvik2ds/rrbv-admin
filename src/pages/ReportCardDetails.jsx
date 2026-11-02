@@ -239,7 +239,7 @@ const ReportCardDetails = ({ selectedData, onBack }) => {
       {/* A4 REPORT CARD */}
       <div
         id="result-card-print"
-        className="bg-white border-2 border-slate-400 rounded-xl p-6 shadow-lg max-w-[210mm] mx-auto text-slate-800 font-sans space-y-3.5 print:border-none print:shadow-none print:w-[210mm] print:rounded-none"
+        className="bg-white border-2 border-slate-400 rounded-xl p-6 shadow-lg max-w-[210mm] mx-auto text-slate-800 font-sans space-y-3.5 flex flex-col min-h-[297mm] print:border-none print:shadow-none print:w-[210mm] print:rounded-none print:min-h-[297mm]"
       >
         {/* SCHOOL HEADER WITH LOGO */}
         <div className="flex items-center justify-between border-b-2 border-slate-900 pb-2">
@@ -544,13 +544,19 @@ const ReportCardDetails = ({ selectedData, onBack }) => {
         )}
 
         {/* SIGNATURE FOOTER */}
-        <div className="pt-5 grid grid-cols-3 gap-2 text-center text-[9px] font-bold text-slate-800 border-t-2 border-slate-300">
+        <div className="mt-auto pt-5 grid grid-cols-3 gap-2 text-center text-[9px] font-bold text-slate-800 ">
           <div>
             <div className="border-b-2 border-slate-600 w-3/4 mx-auto mb-1"></div>
             <span>Class Teacher's Signature</span>
           </div>
 
-          <div>
+          <div className="relative">
+            <img
+              src="/images/principal-signature.png"
+              alt="Principal Signature"
+              className="absolute bottom-[14px] left-1/2 -translate-x-1/2 max-h-8 max-w-[120px] object-contain"
+            />
+
             <div className="border-b-2 border-slate-600 w-3/4 mx-auto mb-1"></div>
             <span>Principal's Signature</span>
           </div>
