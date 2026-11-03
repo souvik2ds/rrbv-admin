@@ -7,6 +7,26 @@ import {
 } from 'lucide-react';
 import { apiRequest } from '../api';
 
+const SUBJECT_ORDER = [
+  'Bengali',
+  'English',
+  'Mathematics',
+  'History',
+  'Geography',
+  'Physical Science',
+  'Life Science',
+  'Science',
+  'Sanskrit',
+  'General Knowledge',
+  'Karate',
+  'Computer',
+  'Work education',
+  'Drawing',
+  'Spoken',
+  'Games',
+  'Project'
+];
+
 const ReportCardDetails = ({ selectedData, onBack }) => {
   const [resultData, setResultData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +114,25 @@ const ReportCardDetails = ({ selectedData, onBack }) => {
   const studentInfo = resultData?.student;
   const examInfo = resultData?.exam;
   const summary = resultData?.summary;
-  const subjects = resultData?.subjects || [];
+  const rawSubjects = resultData?.subjects || [];
+
+  const subjects = [...rawSubjects].sort((a, b) => {
+      const nameA = (a.subjectName || '').trim().toLowerCase();
+      const nameB = (b.subjectName || '').trim().toLowerCase();
+
+      const indexA = SUBJECT_ORDER.findIndex(
+        (item) => item.toLowerCase() === nameA
+      );
+      const indexB = SUBJECT_ORDER.findIndex(
+        (item) => item.toLowerCase() === nameB
+      );
+
+      const orderA = indexA !== -1 ? indexA : 999;
+      const orderB = indexB !== -1 ? indexB : 999;
+
+      return orderA - orderB;
+    });
+
   const classTests = resultData?.classTests || [];
 
   // Grade Scale Reference
