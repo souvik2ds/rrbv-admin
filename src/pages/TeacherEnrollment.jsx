@@ -302,7 +302,7 @@ const TeacherEnrollment = () => {
                         onClick={() => handleTeacherClick(teacher.id)}
                         className="text-emerald-600 hover:text-emerald-800 font-bold text-xs"
                       >
-                        View Details
+                        View Details/Update
                       </button>
                     </td>
                   </tr>

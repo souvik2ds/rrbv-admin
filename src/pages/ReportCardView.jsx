@@ -24,6 +24,7 @@ const ReportCardView = ({ onSelectExamForReportCard }) => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
 
+
   // 1. Initial Load for Academic Years & Classrooms
   useEffect(() => {
     const fetchMetadata = async () => {
@@ -46,7 +47,7 @@ const ReportCardView = ({ onSelectExamForReportCard }) => {
 
     fetchMetadata();
     // Initial search with default null filters
-    handleSearchEnrollments(null, '', '', '');
+   // handleSearchEnrollments(null, '', '', '');
   }, []);
 
   // 2. Search Student Enrollments (POST /student-enrollments/search)
@@ -64,7 +65,14 @@ const ReportCardView = ({ onSelectExamForReportCard }) => {
       };
 
       const data = await apiRequest('/student-enrollments/search', 'POST', payload);
-      setEnrollments(data || []);
+
+        const sortedData = (data || []).sort((a, b) => {
+              const rollA = Number(a.rollNumber || a.rollNo) || 0;
+              const rollB = Number(b.rollNumber || b.rollNo) || 0;
+              return rollA - rollB;
+            });
+
+      setEnrollments(sortedData);
     } catch (error) {
       console.error(error);
       setMessage({ type: 'error', text: error.message || 'শিক্ষার্থীর এনরোলমেন্ট ডাটা পেতে সমস্যা হয়েছে।' });
@@ -194,6 +202,8 @@ const ReportCardView = ({ onSelectExamForReportCard }) => {
         </form>
       </div>
 
+
+
       {/* Student Enrollment List Table */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
@@ -226,17 +236,17 @@ const ReportCardView = ({ onSelectExamForReportCard }) => {
                 {enrollments.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                     <td className="py-3 px-4 font-mono font-semibold text-slate-800">
-                      #{item.rollNo || item.id}
+                      #{item.rollNumber || item.id}
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-900 flex items-center gap-2">
                       <User size={16} className="text-slate-400" />
                       {item.studentName || item.student?.name || 'N/A'}
                     </td>
                     <td className="py-3 px-4 text-slate-700">
-                      {item.academicYearName || item.academicYear?.name || 'N/A'}
+                      {item.academicYear || item.academicYear?.name || 'N/A'}
                     </td>
                     <td className="py-3 px-4 text-slate-700">
-                      {item.classroomName || item.classroom?.name || 'N/A'}
+                      {item.className || item.classroom?.name || 'N/A'}
                       {(item.section || item.classroom?.section) && ` (${item.section || item.classroom?.section})`}
                     </td>
 

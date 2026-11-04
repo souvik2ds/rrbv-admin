@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search, RefreshCw, ClipboardList, CheckCircle2, XCircle, Filter,
-  MoreVertical, Eye, Edit2, Power, X, User, BookOpen, MapPin, Shield, Calendar, Phone, Mail, GraduationCap, Heart, Hash
+  MoreVertical, Eye, Edit2, Power, X, User, BookOpen, MapPin, Shield, Calendar, Phone, Mail, GraduationCap, Heart, Hash, Save
 } from 'lucide-react';
 import { apiRequest } from '../api';
 
@@ -17,6 +17,10 @@ const StudentDirectory = () => {
     active: ''
   });
 
+  // Local Search States for Name and Student Code
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchCode, setSearchCode] = useState('');
+
   // Table Data & Loading States
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -31,6 +35,35 @@ const StudentDirectory = () => {
   // Combines responses for Detailed View
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
   const [selectedEnrollmentDetail, setSelectedEnrollmentDetail] = useState(null);
+
+  // 📝 Edit Modal States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [updateSubmitting, setUpdateSubmitting] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    gender: 'MALE',
+    dateOfBirth: '',
+    bloodGroup: '',
+    religion: '',
+    phone: '',
+    email: '',
+    aadhaarNumber: '',
+    fatherName: '',
+    fatherQualification: '',
+    fatherOccupation: '',
+    fatherPhone: '',
+    motherName: '',
+    motherQualification: '',
+    motherOccupation: '',
+    motherPhone: '',
+    guardianName: '',
+    guardianRelation: '',
+    guardianPhone: '',
+    address: '',
+    photoUrl: ''
+  });
 
   // 🔄 1. Load Dropdown Metadata on Mount
   useEffect(() => {
@@ -51,7 +84,7 @@ const StudentDirectory = () => {
       }
     };
     loadMetadata();
-    fetchStudents({ academicYearId: null, classroomId: null, active: null });
+    //fetchStudents({ academicYearId: null, classroomId: null, active: null });
   }, []);
 
   // Close menus when clicking outside
@@ -67,7 +100,14 @@ const StudentDirectory = () => {
     setMessage({ type: '', text: '' });
     try {
       const responseData = await apiRequest('/student-enrollments/search', 'POST', payload);
-      setStudents(responseData || []);
+
+      const sortedData = (responseData || []).sort((a, b) => {
+              const rollA = Number(a.rollNumber) || 0;
+              const rollB = Number(b.rollNumber) || 0;
+              return rollA - rollB;
+            });
+
+      setStudents(sortedData);
     } catch (error) {
       console.error("Error fetching student roster:", error);
       setMessage({ type: 'error', text: error.message || 'Failed to fetch student directory.' });
@@ -89,10 +129,20 @@ const StudentDirectory = () => {
   const handleReset = () => {
     const freshState = { academicYearId: '', classroomId: '', active: '' };
     setSearchRequest(freshState);
-    fetchStudents({ academicYearId: null, classroomId: null, active: null });
+    setSearchTerm('');
+    setSearchCode('');
+    setStudents([]);
+    //fetchStudents({ academicYearId: null, classroomId: null, active: null });
   };
 
-  // 📂 3. Feature 1: View Full Student Details (Combination of 2 APIs)
+  // Filtered Students List based on local Name and Code search inputs
+  const filteredStudents = students.filter((stu) => {
+    const matchesName = (stu.studentName || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCode = (stu.studentCode || '').toLowerCase().includes(searchCode.toLowerCase());
+    return matchesName && matchesCode;
+  });
+
+  // 📂 3. Feature 1: View Full Student Details
   const handleViewDetails = async (enrollmentId, studentId, e) => {
     e.stopPropagation();
     setActiveMenuId(null);
@@ -102,7 +152,6 @@ const StudentDirectory = () => {
     setSelectedEnrollmentDetail(null);
 
     try {
-      // Parallel API calls to fetch complete records
       const [studentRes, enrollmentRes] = await Promise.all([
         apiRequest(`/students/${studentId}`, 'GET'),
         apiRequest(`/student-enrollments/${enrollmentId}`, 'GET')
@@ -119,12 +168,65 @@ const StudentDirectory = () => {
     }
   };
 
-  // 📝 Aadhaar Number Redaction masking helper
-  const maskAadhaar = (aadhaar) => {
-    if (!aadhaar) return 'Not Provided';
-    const cleaned = aadhaar.replace(/\s+/g, '');
-    if (cleaned.length !== 12) return 'Invalid Number';
-    return `xxxx-xxxx-${cleaned.slice(-4)}`;
+  // 📝 4. Feature 2: Open Edit Student Modal with Prefilled Data
+  const handleOpenEdit = async (studentId, e) => {
+    e.stopPropagation();
+    setActiveMenuId(null);
+    setEditingStudentId(studentId);
+    setIsEditModalOpen(true);
+    setEditLoading(true);
+
+    try {
+      const studentData = await apiRequest(`/students/${studentId}`, 'GET');
+      if (studentData) {
+        setEditForm({
+          name: studentData.name || '',
+          gender: studentData.gender || 'MALE',
+          dateOfBirth: studentData.dateOfBirth || '',
+          bloodGroup: studentData.bloodGroup || '',
+          religion: studentData.religion || '',
+          phone: studentData.phone || '',
+          email: studentData.email || '',
+          aadhaarNumber: studentData.aadhaarNumber || '',
+          fatherName: studentData.fatherName || '',
+          fatherQualification: studentData.fatherQualification || '',
+          fatherOccupation: studentData.fatherOccupation || '',
+          fatherPhone: studentData.fatherPhone || '',
+          motherName: studentData.motherName || '',
+          motherQualification: studentData.motherQualification || '',
+          motherOccupation: studentData.motherOccupation || '',
+          motherPhone: studentData.motherPhone || '',
+          guardianName: studentData.guardianName || '',
+          guardianRelation: studentData.guardianRelation || '',
+          guardianPhone: studentData.guardianPhone || '',
+          address: studentData.address || '',
+          photoUrl: studentData.photoUrl || ''
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching student details for edit:", error);
+      alert("Failed to load student details for editing.");
+      setIsEditModalOpen(false);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // 💾 5. Handle Edit Form Submission (`PUT /students/{id}`)
+  const handleUpdateSubmit = async (e) => {
+    e.preventDefault();
+    setUpdateSubmitting(true);
+    try {
+      await apiRequest(`/students/${editingStudentId}`, 'PUT', editForm);
+      alert("Student details updated successfully!");
+      setIsEditModalOpen(false);
+      handleSearchSubmit(e);
+    } catch (error) {
+      console.error("Error updating student:", error);
+      alert(error.message || "Failed to update student details.");
+    } finally {
+      setUpdateSubmitting(false);
+    }
   };
 
   return (
@@ -197,6 +299,37 @@ const StudentDirectory = () => {
         </div>
       </form>
 
+      {/* 🔍 QUICK FILTER SEARCH BAR (SCREEN FILTERING BY NAME & CODE) */}
+      <div className="bg-white p-4 border border-slate-200 rounded-xl shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Search by Student Name</label>
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Type student name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-emerald-500"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Search by Student Code</label>
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Type student code..."
+              value={searchCode}
+              onChange={(e) => setSearchCode(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-emerald-500 font-mono"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* 📊 ROSTER LIST DATA TABLE */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         {loading ? (
@@ -204,10 +337,10 @@ const StudentDirectory = () => {
             <RefreshCw size={28} className="animate-spin text-emerald-600" />
             <span className="font-medium animate-pulse">Running advanced Criteria database search...</span>
           </div>
-        ) : students.length === 0 ? (
+        ) : filteredStudents.length === 0 ? (
           <div className="p-16 text-center text-slate-400 text-sm flex flex-col items-center justify-center space-y-1">
             <ClipboardList size={32} className="text-slate-300 mb-1" />
-            <span className="font-semibold text-slate-600">No Student Records Loaded</span>
+            <span className="font-semibold text-slate-600">No Matching Student Records Found</span>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -216,7 +349,7 @@ const StudentDirectory = () => {
                 <tr className="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200 font-mono">
                   <th className="py-3 px-4 w-28">Code</th>
                   <th className="py-3 px-4">Student Name</th>
-                  <th className="py-3 px-4">Admission No.</th> {/* 👈 Header updated here */}
+                  <th className="py-3 px-4">Admission No.</th>
                   <th className="py-3 px-4">Academic Session</th>
                   <th className="py-3 px-4">Class Allocation</th>
                   <th className="py-3 px-4 text-center w-24">Roll No.</th>
@@ -225,7 +358,7 @@ const StudentDirectory = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {students.map((stu) => (
+                {filteredStudents.map((stu) => (
                   <tr key={stu.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-700">
                       <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">{stu.studentCode}</span>
@@ -235,7 +368,7 @@ const StudentDirectory = () => {
                       <div className="text-[11px] text-slate-400">ID Ref: #{stu.studentId}</div>
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-slate-700">
-                      {stu.admissionNumber || 'N/A'} {/* 👈 Displaying Admission Number */}
+                      {stu.admissionNumber || 'N/A'}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-600">{stu.academicYear}</td>
                     <td className="py-3.5 px-4">
@@ -266,7 +399,7 @@ const StudentDirectory = () => {
                       </button>
 
                       {activeMenuId === stu.id && (
-                        <div className="absolute right-4 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-20 overflow-hidden text-left py-1">
+                        <div className="absolute right-4 mt-1 w-52 bg-white border border-slate-200 rounded-lg shadow-lg z-20 overflow-hidden text-left py-1">
                           <button
                             type="button"
                             onClick={(e) => handleViewDetails(stu.id, stu.studentId, e)}
@@ -277,10 +410,10 @@ const StudentDirectory = () => {
 
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); alert("Feature 2 (Update) is coming in the next step!"); }}
+                            onClick={(e) => handleOpenEdit(stu.studentId, e)}
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition"
                           >
-                            <Edit2 size={14} /> Update Enrollment
+                            <Edit2 size={14} /> Edit Student Details
                           </button>
 
                           <button
@@ -302,13 +435,11 @@ const StudentDirectory = () => {
       </div>
 
       {/* =========================================================================
-          🌟 SLIDE-OUT DETAIL DRAWER (MODERN DOUBLE-PANEL PROFILE VIEWER)
+          🌟 SLIDE-OUT DETAIL DRAWER
           ========================================================================= */}
       {isDetailDrawerOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex justify-end transition-opacity duration-300">
           <div className="w-full max-w-5xl bg-slate-50 h-screen shadow-2xl flex flex-col animate-slide-in relative overflow-hidden">
-
-            {/* Header section */}
             <div className="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-xl shadow-md border-2 border-white/20">
@@ -332,7 +463,6 @@ const StudentDirectory = () => {
               </button>
             </div>
 
-            {/* Content Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {detailLoading ? (
                 <div className="h-96 flex flex-col items-center justify-center space-y-3">
@@ -341,8 +471,6 @@ const StudentDirectory = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                  {/* Left Column: Photo & Primary Indicators */}
                   <div className="lg:col-span-1 space-y-4">
                     <div className="bg-white p-5 border border-slate-200 rounded-xl shadow-sm text-center flex flex-col items-center">
                       <div className="w-28 h-28 rounded-full border-4 border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden mb-3 shadow-inner">
@@ -355,7 +483,6 @@ const StudentDirectory = () => {
                       <h4 className="font-bold text-slate-900 text-base">{selectedStudentDetail?.name}</h4>
                       <p className="text-xs text-slate-500 font-medium mb-4">System ID Reference #{selectedStudentDetail?.id}</p>
 
-                      {/* Active Badges */}
                       <div className="flex items-center gap-2 mb-4">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
                           selectedStudentDetail?.active
@@ -373,7 +500,6 @@ const StudentDirectory = () => {
                         </span>
                       </div>
 
-                      {/* Primary Parameters */}
                       <div className="w-full space-y-2.5 border-t border-slate-100 pt-3 text-xs">
                         <div className="flex justify-between">
                           <span className="text-slate-400 font-medium">Gender</span>
@@ -390,7 +516,6 @@ const StudentDirectory = () => {
                       </div>
                     </div>
 
-                    {/* Quick Contact Box */}
                     <div className="bg-white p-4 border border-slate-200 rounded-xl shadow-sm space-y-3">
                       <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1.5">
                         <Phone size={12} className="text-slate-500" /> Primary Student Contact
@@ -408,10 +533,7 @@ const StudentDirectory = () => {
                     </div>
                   </div>
 
-                  {/* Right Columns: Combined Academic & Personal Details */}
                   <div className="lg:col-span-2 space-y-6">
-
-                    {/* SECTION 1: ACADEMIC DETAILS (StudentEnrollmentResponse) */}
                     <div className="bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-3.5">
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
                         <BookOpen size={18} className="text-emerald-600" />
@@ -448,7 +570,6 @@ const StudentDirectory = () => {
                       </div>
                     </div>
 
-                    {/* SECTION 2: PARENT & FAMILY DETAILS (StudentResponse - COMPLETE DETAIL) */}
                     <div className="bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-3.5">
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
                         <User size={18} className="text-indigo-600" />
@@ -456,7 +577,6 @@ const StudentDirectory = () => {
                       </div>
 
                       <div className="space-y-4 text-xs">
-                        {/* Father Record */}
                         <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100 space-y-2">
                           <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">Father's Information</span>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -479,7 +599,6 @@ const StudentDirectory = () => {
                           </div>
                         </div>
 
-                        {/* Mother Record */}
                         <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100 space-y-2">
                           <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">Mother's Information</span>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -501,67 +620,13 @@ const StudentDirectory = () => {
                             </div>
                           </div>
                         </div>
-
-                        {/* Guardian Record */}
-                        {selectedStudentDetail?.guardianName ? (
-                          <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100 space-y-2">
-                            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Guardian's Information (Emergency/Other)</span>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                              <div>
-                                <span className="text-slate-400 block font-medium">Name</span>
-                                <span className="font-bold text-slate-900">{selectedStudentDetail.guardianName}</span>
-                              </div>
-                              <div>
-                                <span className="text-slate-400 block font-medium">Relation to Student</span>
-                                <span className="font-semibold text-slate-800">{selectedStudentDetail.guardianRelation || 'N/A'}</span>
-                              </div>
-                              <div>
-                                <span className="text-slate-400 block font-medium">Phone Number</span>
-                                <span className="font-bold text-slate-900">{selectedStudentDetail.guardianPhone || 'N/A'}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-center text-[11px] text-slate-400 py-1 bg-slate-50 rounded">
-                            No secondary guardian required (parents are primary guardians).
-                          </div>
-                        )}
                       </div>
                     </div>
-
-                    {/* SECTION 3: PERSONAL IDENTIFIERS & ADDRESS (StudentResponse) */}
-                    <div className="bg-white p-5 border border-slate-200 rounded-xl shadow-sm space-y-3.5">
-                      <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                        <Shield size={18} className="text-amber-600" />
-                        <h4 className="font-bold text-slate-800 text-sm">Personal Identifiers & Address</h4>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                        <div>
-                          <span className="text-slate-400 block font-medium">Date of Birth</span>
-                          <span className="font-bold text-slate-800">{selectedStudentDetail?.dateOfBirth || 'Not Provided'}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block font-medium">Aadhaar Number</span>
-                          <span className="font-mono font-bold text-slate-850 bg-slate-100 px-2 py-0.5 rounded tracking-wider">
-                            {maskAadhaar(selectedStudentDetail?.aadhaarNumber)}
-                          </span>
-                        </div>
-                        <div className="md:col-span-2">
-                          <span className="text-slate-400 block font-medium">Communication Address</span>
-                          <span className="font-semibold text-slate-700 block mt-1 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
-                            {selectedStudentDetail?.address || 'No permanent address recorded in the database.'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Footer buttons */}
             <div className="bg-white border-t border-slate-200 px-6 py-4 flex justify-end shrink-0 shadow-inner">
               <button
                 type="button"
@@ -571,7 +636,278 @@ const StudentDirectory = () => {
                 Close Profile
               </button>
             </div>
+          </div>
+        </div>
+      )}
 
+      {/* =========================================================================
+          📝 EDIT STUDENT DETAILS MODAL
+          ========================================================================= */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Edit2 size={20} className="text-indigo-400" />
+                <h3 className="font-bold text-base">Edit Student Personal Details</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {editLoading ? (
+                <div className="h-64 flex flex-col items-center justify-center space-y-3">
+                  <RefreshCw size={32} className="animate-spin text-emerald-600" />
+                  <p className="text-sm font-semibold text-slate-600">Loading student details for editing...</p>
+                </div>
+              ) : (
+                <form id="edit-student-form" onSubmit={handleUpdateSubmit} className="space-y-6 text-xs">
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b pb-1 text-[11px] text-emerald-700">
+                      Basic Student Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Full Name *</label>
+                        <input
+                          type="text"
+                          required
+                          maxLength={100}
+                          value={editForm.name}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Gender *</label>
+                        <select
+                          required
+                          value={editForm.gender}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600 bg-white"
+                        >
+                          <option value="MALE">MALE</option>
+                          <option value="FEMALE">FEMALE</option>
+                          <option value="OTHER">OTHER</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Date of Birth</label>
+                        <input
+                          type="date"
+                          value={editForm.dateOfBirth}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Blood Group</label>
+                        <input
+                          type="text"
+                          maxLength={20}
+                          value={editForm.bloodGroup}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, bloodGroup: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Religion</label>
+                        <input
+                          type="text"
+                          maxLength={50}
+                          value={editForm.religion}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, religion: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Aadhaar Number (12 digits)</label>
+                        <input
+                          type="text"
+                          maxLength={12}
+                          value={editForm.aadhaarNumber}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, aadhaarNumber: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Phone Number</label>
+                        <input
+                          type="text"
+                          maxLength={15}
+                          value={editForm.phone}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Email Address</label>
+                        <input
+                          type="email"
+                          maxLength={100}
+                          value={editForm.email}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b pb-1 text-[11px] text-indigo-700">
+                      Father & Mother Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                        <span className="font-bold text-indigo-900 uppercase">Father's Details</span>
+                        <div>
+                          <label className="block font-semibold text-slate-600 mb-1">Father Name *</label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={100}
+                            value={editForm.fatherName}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, fatherName: e.target.value }))}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-none focus:border-emerald-600"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block font-semibold text-slate-600 mb-1">Qualification</label>
+                            <input
+                              type="text"
+                              maxLength={100}
+                              value={editForm.fatherQualification}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, fatherQualification: e.target.value }))}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-none focus:border-emerald-600"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-semibold text-slate-600 mb-1">Occupation</label>
+                            <input
+                              type="text"
+                              maxLength={100}
+                              value={editForm.fatherOccupation}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, fatherOccupation: e.target.value }))}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-none focus:border-emerald-600"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block font-semibold text-slate-600 mb-1">Father Phone</label>
+                          <input
+                            type="text"
+                            maxLength={15}
+                            value={editForm.fatherPhone}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, fatherPhone: e.target.value }))}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-none focus:border-emerald-600"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                        <span className="font-bold text-indigo-900 uppercase">Mother's Details</span>
+                        <div>
+                          <label className="block font-semibold text-slate-600 mb-1">Mother Name *</label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={100}
+                            value={editForm.motherName}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, motherName: e.target.value }))}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-none focus:border-emerald-600"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block font-semibold text-slate-600 mb-1">Qualification</label>
+                            <input
+                              type="text"
+                              maxLength={100}
+                              value={editForm.motherQualification}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, motherQualification: e.target.value }))}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-none focus:border-emerald-600"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-semibold text-slate-600 mb-1">Occupation</label>
+                            <input
+                              type="text"
+                              maxLength={100}
+                              value={editForm.motherOccupation}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, motherOccupation: e.target.value }))}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-none focus:border-emerald-600"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block font-semibold text-slate-600 mb-1">Mother Phone</label>
+                          <input
+                            type="text"
+                            maxLength={15}
+                            value={editForm.motherPhone}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, motherPhone: e.target.value }))}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white outline-none focus:border-emerald-600"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-wider border-b pb-1 text-[11px] text-amber-700">
+                      Address & Photo URL
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Address</label>
+                        <textarea
+                          rows={3}
+                          value={editForm.address}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-600 mb-1">Photo URL</label>
+                        <input
+                          type="text"
+                          maxLength={500}
+                          value={editForm.photoUrl}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, photoUrl: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:border-emerald-600"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            <div className="bg-slate-50 border-t border-slate-200 px-6 py-3 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-semibold text-xs hover:bg-slate-100 transition"
+              >
+                Cancel
+              </button>
+              <button
+                form="edit-student-form"
+                type="submit"
+                disabled={updateSubmitting || editLoading}
+                className="px-5 py-2 bg-emerald-600 text-white font-semibold text-xs rounded-lg hover:bg-emerald-700 transition flex items-center gap-1.5 shadow disabled:opacity-50"
+              >
+                {updateSubmitting ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                {updateSubmitting ? 'Updating...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       )}
