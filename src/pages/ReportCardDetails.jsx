@@ -135,6 +135,16 @@ const ReportCardDetails = ({ selectedData, onBack }) => {
 
   const classTests = resultData?.classTests || [];
 
+  const normalizedClassName = (studentInfo?.classroomName || '')
+    .trim()
+    .toLowerCase();
+
+  const isClassNineOrTen =
+    normalizedClassName === 'class 9' ||
+    normalizedClassName === 'class 10' ||
+    normalizedClassName === 'standard ix' ||
+    normalizedClassName === 'standard x';
+
   // Grade Scale Reference
   const gradeRanges = [
     { grade: 'A+', range: '90 - 100%', label: 'Excellent' },
@@ -469,7 +479,7 @@ const ReportCardDetails = ({ selectedData, onBack }) => {
         </div>
 
         {/* CLASS TEST HORIZONTAL TABLE (MOVED BELOW TERM RESULT TABLE) */}
-        {classTests && classTests.length > 0 && (
+        {!isClassNineOrTen && classTests && classTests.length > 0 && (
           <div className="space-y-1">
             <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
               Class Test Evaluation Summary
