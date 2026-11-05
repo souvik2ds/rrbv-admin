@@ -217,7 +217,17 @@ const StudentDirectory = () => {
     e.preventDefault();
     setUpdateSubmitting(true);
     try {
-      await apiRequest(`/students/${editingStudentId}`, 'PUT', editForm);
+
+        const payload = {
+          ...editForm,
+          phone: editForm.phone.trim() || null,
+          email: editForm.email.trim() || null,
+          aadhaarNumber: editForm.aadhaarNumber.trim() || null,
+          fatherPhone: editForm.fatherPhone.trim() || null,
+          motherPhone: editForm.motherPhone.trim() || null,
+          guardianPhone: editForm.guardianPhone.trim() || null,
+        };
+      await apiRequest(`/students/${editingStudentId}`, 'PUT', payload);
       alert("Student details updated successfully!");
       setIsEditModalOpen(false);
       handleSearchSubmit(e);
